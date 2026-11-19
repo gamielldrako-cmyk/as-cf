@@ -1,0 +1,31 @@
+
+                -dDownsampleColorImages=true -dDownsampleGrayImages=true -dDownsampleMonoImages=true \
+                -dColorImageResolution=$1 -dGrayImageResolution=$1 -dMonoImageResolution=$(( $1 * 2 )) \
+                -dAutoFilterColorImages=false -dAutoFilterGrayImages=false \
+                -dColorImageFilter=/DCTEncode -dGrayImageFilter=/DCTEncode \
+                -dDetectDuplicateImages=true -dCompressFonts=true -dSubsetFonts=true \
+                -dNOPAUSE -dQUIET -dBATCH -sOutputFile=tmp.pdf \
+                -c "<< /ColorImageDict << /QFactor $2 /Blend 1 /HSamples [2 1 1 2] /VSamples [2 1 1 2] >> /GrayImageDict << /QFactor $2 /Blend 1 /HSamples [2 1 1 2] /VSamples [2 1 1 2] >> >> setdistillerparams" \
+                -f "$f" || continue
+              s=$(stat -c%s tmp.pdf)
+              echo "$f | ${1}dpi q$2 gray=$3 -> $((s/1024)) KB"
+              [ "$s" -lt "$bs" ] && { cp tmp.pdf best.pdf; best=best.pdf; bs=$s; }
+              [ "$bs" -le "$max" ] && break
+            done
+            cp "$best" "compressed/${f%.pdf}-compressed.pdf"
+            echo "RESULT $f -> $((bs/1024)) KB"
+          done
+          rm -f tmp.pdf best.pdf
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compressed-pdfs
+          path: compressed/
+
+      - run: |
+          git config user.name github-actions
+          git config user.email actions@github.com
+          git add compressed/
+          git commit -m "Add compressed PDFs" || echo "Nothing to commit"
+          git push
+
